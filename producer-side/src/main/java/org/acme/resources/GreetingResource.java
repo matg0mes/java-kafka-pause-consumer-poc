@@ -1,4 +1,4 @@
-package org.acme;
+package org.acme.resources.rest;
 
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -11,7 +11,7 @@ public class GreetingResource {
     @GET
     @Produces(MediaType.TEXT_PLAIN)
     public String hello() {
-        return "Hello from RESTEasy Reactive";
+        return "Hello Worlds";
     }
 
 }
