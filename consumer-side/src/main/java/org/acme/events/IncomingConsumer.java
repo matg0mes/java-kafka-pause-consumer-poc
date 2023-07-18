@@ -58,8 +58,10 @@ public class IncomingConsumer implements IKafkaConfig {
                     this.kafkaConsumer.resume(topicPartitions);
                 }
 
-                ConsumerRecords<String, String> records = this.kafkaConsumer.poll(Duration.ofMillis(1000));
-                records.forEach(this::process);
+                if (!paused.get()) {
+                    ConsumerRecords<String, String> records = this.kafkaConsumer.poll(Duration.ofMillis(1000));
+                    records.forEach(this::process);
+                }
             }
         } catch (Exception e) {
             System.out.println("Deu ruim");
@@ -69,7 +71,27 @@ public class IncomingConsumer implements IKafkaConfig {
         }
     }
 
-    private List<TopicPartition> getAllTopics () {
+    public void subscribe() {
+        System.out.println("Subscribe in topic");
+
+        if (this.getConsumer().subscription().isEmpty()) {
+            this.getConsumer().subscribe(List.of(topicName));
+        }
+    }
+
+    public void pause() {
+        System.out.println("Kafka paused");
+
+        paused.set(true);
+    }
+
+    public void resume() {
+        System.out.println("Kafka resumed");
+
+        paused.set(false);
+    }
+
+    private List<TopicPartition> getAllTopics() {
         List<PartitionInfo> topicPartitionInfos = this.kafkaConsumer.listTopics().get(topicName);
 
         return topicPartitionInfos.stream()
@@ -100,27 +122,8 @@ public class IncomingConsumer implements IKafkaConfig {
         return this.kafkaConsumer;
     }
 
-    public void pause() {
-        System.out.println("Kafka paused");
-
-        paused.set(true);
-    }
-
-    public void resume() {
-        System.out.println("Kafka resumed");
-
-        paused.set(false);
-    }
-
-    public void subscribe() {
-        System.out.println("Subscribe in topic");
-
-        if (this.getConsumer().subscription().isEmpty()) {
-            this.getConsumer().subscribe(List.of(topicName));
-        }
-    }
-
     public void setKafkaConsumer(KafkaConsumer<String, String> kafkaConsumer) {
         this.kafkaConsumer = kafkaConsumer;
     }
+
 }

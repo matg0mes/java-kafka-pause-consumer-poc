@@ -9,14 +9,14 @@ import org.acme.events.IncomingConsumer;
 public class Main implements QuarkusApplication {
 
     @Inject
-    IncomingConsumer consumer;
+    IncomingConsumer incomingConsumer;
 
     @Override
     public int run(String... args) {
         System.out.println("Initialize consumers");
 
-        consumer.subscribe();
-        consumer.runListener();
+        incomingConsumer.subscribe();
+        incomingConsumer.runListener();
 
         return 0;
     }

@@ -9,6 +9,10 @@ import java.util.Properties;
 @ApplicationScoped
 public interface IKafkaConfig {
 
+    void runListener();
+
+    void subscribe();
+
     default Properties getProperties(String groupId, String bootstrapServer) {
         Properties properties = new Properties();
 
