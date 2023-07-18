@@ -2,6 +2,7 @@ package org.acme.events;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.acme.dto.EventDTO;
@@ -44,8 +45,6 @@ public class IncomingConsumer implements IKafkaConfig {
         System.out.println("Inicializando...");
         try {
             while (true) {
-                System.out.println(this.kafkaConsumer.paused());
-
                 if (paused.get() && this.kafkaConsumer.paused().isEmpty()) {
                     Set<TopicPartition> topicPartitions = this.kafkaConsumer.assignment();
 
@@ -64,7 +63,7 @@ public class IncomingConsumer implements IKafkaConfig {
                 }
             }
         } catch (Exception e) {
-            System.out.println("Deu ruim");
+            System.out.println("Deu ruim" + e.getMessage() + e.getStackTrace().toString());
             throw e;
         } finally {
             this.kafkaConsumer.close();
