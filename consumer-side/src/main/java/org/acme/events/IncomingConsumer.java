@@ -79,23 +79,15 @@ public class IncomingConsumer implements IKafkaConfig {
     }
 
     public void pause() {
-        System.out.println("Kafka paused");
+        System.out.println("IncomingConsumer:: Kafka paused");
 
         paused.set(true);
     }
 
     public void resume() {
-        System.out.println("Kafka resumed");
+        System.out.println("IncomingConsumer:: Kafka resumed");
 
         paused.set(false);
-    }
-
-    private List<TopicPartition> getAllTopics() {
-        List<PartitionInfo> topicPartitionInfos = this.kafkaConsumer.listTopics().get(topicName);
-
-        return topicPartitionInfos.stream()
-                .map(info -> new TopicPartition(info.topic(), info.partition()))
-                .collect(Collectors.toList());
     }
 
     private void process(ConsumerRecord<String, String> message) {
@@ -115,7 +107,11 @@ public class IncomingConsumer implements IKafkaConfig {
             return this.kafkaConsumer;
         }
 
-        KafkaConsumer<String, String> consumer = new KafkaConsumer<>(getProperties(groupId, bootstrapServer));
+        KafkaConsumer<String, String> consumer = new KafkaConsumer<>(getProperties(
+                groupId,
+                bootstrapServer,
+                "earliest"
+        ));
 
         setKafkaConsumer(consumer);
         return this.kafkaConsumer;

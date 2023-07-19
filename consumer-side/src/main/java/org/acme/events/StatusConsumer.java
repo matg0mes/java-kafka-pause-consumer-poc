@@ -1,9 +1,11 @@
 package org.acme.events;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.acme.dto.StatusDTO;
+import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -11,11 +13,11 @@ import org.apache.kafka.common.TopicPartition;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Duration;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 @ApplicationScoped
 public class StatusConsumer implements IKafkaConfig {
@@ -71,7 +73,44 @@ public class StatusConsumer implements IKafkaConfig {
         if (this.getConsumer().subscription().isEmpty()) {
             this.getConsumer().subscribe(List.of(topicName));
         }
+
+        initializeConsumption();
     }
+
+    private void initializeConsumption() {
+        System.out.println("Initialize Consumption");
+        try {
+            ConsumerRecords<String, String> records = this.kafkaConsumer.poll(Duration.ofMillis(Long.MAX_VALUE));
+            List<ConsumerRecord<String, String>> consumerRecords = StreamSupport.stream(records.spliterator(), false).toList();
+
+            StatusDTO lastStatus = consumerRecords.stream().map(this::mapperStatusDTO)
+                    .max(Comparator.comparing(StatusDTO::getDateEvent)).orElseThrow();
+
+            System.out.println("Latest Status:: " + lastStatus.toString());
+            changeIncomingStatus(lastStatus);
+        } catch (Exception e) {
+            System.out.println("StatusConsumer:: Deu ruim\n" + e.getMessage() + e.getStackTrace());
+            throw e;
+        } finally {
+            this.kafkaConsumer.commitSync();
+        }
+    }
+
+    private StatusDTO mapperStatusDTO(ConsumerRecord<String, String> record) {
+        try {
+            return objectMapper.readValue(record.value(), StatusDTO.class);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    private void changeIncomingStatus(StatusDTO statusDTO) {
+        if (statusDTO.getPaused()) {
+            incomingConsumer.pause();
+        } else {
+            incomingConsumer.resume();
+        }
+    }
+
 
     private void process(ConsumerRecord<String, String> message) {
         try {
@@ -79,11 +118,7 @@ public class StatusConsumer implements IKafkaConfig {
 
             System.out.println("Recebido mensagem do produtor:: " + statusDTO.getDescription());
 
-            if (statusDTO.getPaused()) {
-                incomingConsumer.pause();
-            } else {
-                incomingConsumer.resume();
-            }
+            changeIncomingStatus(statusDTO);
         } catch (Exception e) {
             System.out.println("Deu ruim");
         } finally {
@@ -96,10 +131,11 @@ public class StatusConsumer implements IKafkaConfig {
             return this.kafkaConsumer;
         }
 
-        // Different consumer group for consumers...
+        // Different consumer group for all consumers instances...
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(getProperties(
                 UUID.randomUUID().toString(),
-                bootstrapServer
+                bootstrapServer,
+                "earliest"
         ));
 
         setKafkaConsumer(consumer);

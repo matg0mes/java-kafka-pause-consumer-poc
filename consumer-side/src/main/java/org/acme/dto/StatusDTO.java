@@ -43,4 +43,14 @@ public class StatusDTO {
     public void setDescription(String description) {
         this.description = description;
     }
+
+    @Override
+    public String toString() {
+        return "StatusDTO{" +
+                "eventId='" + eventId + '\'' +
+                ", description='" + description + '\'' +
+                ", paused=" + paused +
+                ", dateEvent=" + dateEvent +
+                '}';
+    }
 }
