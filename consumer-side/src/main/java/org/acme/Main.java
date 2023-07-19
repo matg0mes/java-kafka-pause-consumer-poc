@@ -17,9 +17,6 @@ public class Main implements QuarkusApplication {
     IncomingConsumer incomingConsumer;
 
     @Inject
-    ThreadContext threadContext;
-
-    @Inject
     ManagedExecutor managedExecutor;
 
     @Override
