@@ -1,38 +1,33 @@
 package org.acme.events;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.acme.dto.EventDTO;
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.KafkaAdminClient;
-import org.apache.kafka.clients.consumer.*;
-import org.apache.kafka.common.PartitionInfo;
+import org.acme.dto.StatusDTO;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.TopicPartitionInfo;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
-public class IncomingConsumer implements IKafkaConfig {
+public class StatusConsumer implements IKafkaConfig {
 
     @Inject
     ObjectMapper objectMapper;
 
-    @ConfigProperty(name = "kafka.event-incoming.topic")
-    String topicName;
+    @Inject
+    IncomingConsumer incomingConsumer;
 
-    @ConfigProperty(name = "kafka.event-incoming.group.id")
-    String groupId;
+    @ConfigProperty(name = "kafka.status-incoming.topic")
+    String topicName;
 
     @ConfigProperty(name = "kafka.bootstrap.servers")
     String bootstrapServer;
@@ -42,7 +37,7 @@ public class IncomingConsumer implements IKafkaConfig {
     private AtomicBoolean paused = new AtomicBoolean(false);
 
     public void runListener() {
-        System.out.println("IncomingConsumer:: Inicializando...");
+        System.out.println("StatusConsumer:: Inicializando...");
         try {
             while (true) {
                 if (paused.get() && this.kafkaConsumer.paused().isEmpty()) {
@@ -63,7 +58,7 @@ public class IncomingConsumer implements IKafkaConfig {
                 }
             }
         } catch (Exception e) {
-            System.out.println("IncomingConsumer:: Deu ruim" + e.getMessage() + e.getStackTrace());
+            System.out.println("StatusConsumer:: Deu ruim\n" + e.getMessage() + e.getStackTrace());
             throw e;
         } finally {
             this.kafkaConsumer.close();
@@ -78,31 +73,17 @@ public class IncomingConsumer implements IKafkaConfig {
         }
     }
 
-    public void pause() {
-        System.out.println("Kafka paused");
-
-        paused.set(true);
-    }
-
-    public void resume() {
-        System.out.println("Kafka resumed");
-
-        paused.set(false);
-    }
-
-    private List<TopicPartition> getAllTopics() {
-        List<PartitionInfo> topicPartitionInfos = this.kafkaConsumer.listTopics().get(topicName);
-
-        return topicPartitionInfos.stream()
-                .map(info -> new TopicPartition(info.topic(), info.partition()))
-                .collect(Collectors.toList());
-    }
-
     private void process(ConsumerRecord<String, String> message) {
         try {
-            EventDTO eventDTO = objectMapper.readValue(message.value(), EventDTO.class);
+            StatusDTO statusDTO = objectMapper.readValue(message.value(), StatusDTO.class);
 
-            System.out.println("Recebido mensagem do produtor" + eventDTO.getDescription());
+            System.out.println("Recebido mensagem do produtor:: " + statusDTO.getDescription());
+
+            if (statusDTO.getPaused()) {
+                incomingConsumer.pause();
+            } else {
+                incomingConsumer.resume();
+            }
         } catch (Exception e) {
             System.out.println("Deu ruim");
         } finally {
@@ -115,7 +96,11 @@ public class IncomingConsumer implements IKafkaConfig {
             return this.kafkaConsumer;
         }
 
-        KafkaConsumer<String, String> consumer = new KafkaConsumer<>(getProperties(groupId, bootstrapServer));
+        // Different consumer group for consumers...
+        KafkaConsumer<String, String> consumer = new KafkaConsumer<>(getProperties(
+                UUID.randomUUID().toString(),
+                bootstrapServer
+        ));
 
         setKafkaConsumer(consumer);
         return this.kafkaConsumer;

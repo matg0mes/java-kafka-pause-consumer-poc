@@ -5,6 +5,7 @@ import io.quarkus.runtime.QuarkusApplication;
 import io.quarkus.runtime.annotations.QuarkusMain;
 import jakarta.inject.Inject;
 import org.acme.events.IncomingConsumer;
+import org.acme.events.StatusConsumer;
 import org.eclipse.microprofile.context.ManagedExecutor;
 import org.eclipse.microprofile.context.ThreadContext;
 
@@ -17,15 +18,20 @@ public class Main implements QuarkusApplication {
     IncomingConsumer incomingConsumer;
 
     @Inject
+    StatusConsumer statusConsumer;
+
+    @Inject
     ManagedExecutor managedExecutor;
 
     @Override
     public int run(String... args) throws Exception {
         System.out.println("Initialize consumers");
 
+        statusConsumer.subscribe();
         incomingConsumer.subscribe();
 
         // Multiple Consumers Runners
+        managedExecutor.runAsync(() -> statusConsumer.runListener());
         managedExecutor.runAsync(() -> incomingConsumer.runListener());
 
         // keep the main thread open
